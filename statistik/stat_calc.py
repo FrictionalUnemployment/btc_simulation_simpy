@@ -6,7 +6,6 @@ from datetime import datetime
 import scipy.stats as stats
 import pandas as pd
 
-# NUMBER_OF_BLOCKS = 2000 # Change this to change the number of blocks this program checks
 NUMBER_OF_BLOCKS = int(input("Number of blocks to check: "))
 
 timeStart = datetime.now()
@@ -23,7 +22,6 @@ sizes = np.array([])
 fees = np.array([])
 
 try:
-    # for i in range(NUMBER_OF_BLOCKS):
     i = 0
     while True:
         if NUMBER_OF_BLOCKS != 0 and i >= NUMBER_OF_BLOCKS:
@@ -44,7 +42,7 @@ except KeyboardInterrupt:
     print("\nCancelling")
 finally:
     print()
-    lengths = np.append(lenghts, lengths_l)
+    lengths = np.append(lengths, lengths_l)
     lengths_series = pd.Series(lengths)
     lengths_desc = lengths_series.describe()
 
