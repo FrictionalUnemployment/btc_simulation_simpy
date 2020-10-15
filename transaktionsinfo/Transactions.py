@@ -4,10 +4,10 @@ from datetime import datetime
 
 class Transactions:
     
-    def __init__(self, tid, tfee, tsize):
+    def __init__(self, tid, tfee, tsize, stamp):
         self.id = tid # The Transaction ID is stored here
         self.fee = tfee # The Priority (based on amount of fee is stored here) 
-        self.stamp = datetime.now() #Time stamp is stored here
+        self.stamp = stamp #Time stamp is stored here
         self.size = tsize #Transaction size is stored here
 
 #Example code to utilize this class is to use:
