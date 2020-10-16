@@ -1,17 +1,18 @@
 import simpy
 import numpy as np
+import random
 from transaktionsinfo.Transactions import Transactions as transStruct
 
 TIME_TO_CONFIRM = 0 # The time it will take to confirm the transaction
 TRANSACTION_FEE = 3.0  # The transaction fee
-TRANSACTION_SIZE = 1   # Transaction (individual) in byte
+TRANSACTION_SIZE = 9800   # Transaction (individual) in byte
 BLOCK_SIZE = 8000000.0 # Block size in byte
 WEEKS = 4              # Simulation time in weeks
 SIM_TIME = WEEKS * 7 * 24 * 60 #Simulation time in minutes
 
 def transaction_fee():
     """Return the actual transaction fee. Not done yet"""
-    return TRANSACTION_FEE
+    return random.randint(1,10)
 
 def transaction_size():
     """Return the actual transaction size. Not done yet"""
@@ -68,14 +69,30 @@ class MemPool(object):
                                                          transaction_size(),
                                                          self.env.now))
                     #yield store.put(self.transactions[cnt])
-                    yield self.env.timeout(1)
+                    yield self.env.timeout(0.1) # The time it takes to create a transaction
                 except simpy.Interrupt:
                     confirmation_in = 0 # exit while loop
                 cnt += 1
             #msg = yield store.get()
-            #TO DO REMOVE TRANSACTIONS THAT ARE CONFIRMED!!
+            self.add_transactions_to_block(BLOCK_SIZE)
             print('Block number %d Length of array %s Counter %i' % (self.blocks_confirmed, len(self.transactions), cnt))
             self.blocks_confirmed += 1
+
+    #Here we remove transactions from the mempool as they are 'confirmed'
+    #Could also add them into a block if needed?
+    def add_transactions_to_block(self, block_size):
+        temporary_block_size = 0
+        self.transactions.sort(key=lambda x: x.fee, reverse=True) #We prioritize the fee to be first added into the block
+        for x in range(len(self.transactions)):
+            if(temporary_block_size < block_size):
+                temporary_block_size += self.transactions[0].size # We add the size of the transaction
+                                                                  # To our temporary block size first
+                                                                  # Because afterwards we remove the element
+                self.transactions.pop(0) #Remove the first element
+            elif(temporary_block_size == block_size):
+                break
+            
+        
         
 if __name__ == '__main__':
     main()
