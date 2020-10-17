@@ -1,10 +1,11 @@
+import math
 import numpy as np
 import requests
 import json
 import matplotlib.pyplot as plt
 from datetime import datetime
-# import scipy.stats as stats
 import pandas as pd
+import scipy.stats
 
 NUMBER_OF_BLOCKS = int(input("Number of blocks to check: "))
 
@@ -30,7 +31,6 @@ try:
         if NUMBER_OF_BLOCKS != 0 and i >= NUMBER_OF_BLOCKS:
             break
         next_block = requests.get("https://blockchain.info/rawblock/" + block_info["prev_block"])
-        lengths = np.append(lengths, len(block_info["tx"]))
         lengths_l.append(len(block_info["tx"]))
         if len(lengths_l) > 1000:
             lenghts = np.append(lenghts, lenghts_l)
@@ -50,7 +50,6 @@ try:
 except KeyboardInterrupt:
     print("\nCancelling")
 finally:
-    print()
     lengths = np.append(lengths, lengths_l)
     lengths_series = pd.Series(lengths)
     lengths_desc = lengths_series.describe()
@@ -65,52 +64,73 @@ finally:
     fees_series = pd.Series(fees)
     fees_desc = fees_series.describe()
 
+    def freedman_diaconis(data):
+        h = (2 * (data["75%"] - data["25%"])) / math.pow(data["count"], (1/3))
+        return int((data["max"] - data["min"]) / h)
 
-    plt.figure(1)
-    mean_len = lengths_desc["mean"]
-    std_len = lengths_desc["std"]
-    # lengths.sort()
-    # pdf_len = stats.norm.pdf(lengths, mean_len, std_len)
-    # plt.plot(lengths, pdf_len)
-    plt.hist(lengths, bins=int((lengths_desc["max"] - lengths_desc["min"]) / 40))
-    plt.title("Block transaction lengths")
+    def plot(data, data_desc, plotNumb, title):
+        plt.figure(plotNumb)
+        plt.hist(data, bins=freedman_diaconis(data_desc))
+        plt.title(title)
+    
+    plot(lengths, lengths_desc, 1, "Block transaction lengths")
+    plot(sizes, sizes_desc, 2, "Transaction sizes")
+    plot(fees, fees_desc, 3, "Transaction fees (BTC/byte)")
+    plot(time, time_desc, 4, "Time between confirmations")
 
-    plt.figure(2)
-    mean_tx = sizes_desc["mean"]
-    std_tx = sizes_desc["std"]
-    # sizes.sort()
-    # pdf_tx = stats.norm.pdf(sizes, mean_tx, std_tx)
-    # plt.plot(sizes, pdf_tx)
-    plt.hist(sizes, bins=int((sizes_desc["max"] - sizes_desc["min"]) / 10))
-    plt.title("Transaction sizes")
+    # Generating random data with the same distribution to compare results
+    # Funciton taken from jdehesa on stackoverflow (https://stackoverflow.com/a/50629604) with slight changes
+    def my_distribution(desc):
+        min_val = desc["min"]
+        max_val = desc["max"]
+        mean = desc["mean"]
+        std = desc["std"]
+        scale = max_val - min_val
+        location = min_val
+        # Mean and standard deviation of the unscaled beta distribution
+        unscaled_mean = (mean - min_val) / scale
+        unscaled_var = (std / scale) ** 2
+        # Computation of alpha and beta can be derived from mean and variance formulas
+        t = unscaled_mean / (1 - unscaled_mean)
+        beta = ((t / unscaled_var) - (t * t) - (2 * t) - 1) / ((t * t * t) + (3 * t * t) + (3 * t) + 1)
+        alpha = beta * t
+        # Not all parameters may produce a valid distribution
+        if alpha <= 0 or beta <= 0:
+            raise ValueError('Cannot create distribution for the given parameters.')
+        # Make scaled beta distribution with computed parameters
+        return scipy.stats.beta(alpha, beta, scale=scale, loc=location)
+    
+    dist_sizes = my_distribution(sizes_desc)
+    dist_fees = my_distribution(fees_desc)
+    dist_time = my_distribution(time_desc)
 
-    plt.figure(3)
-    mean_fee = fees_desc["mean"]
-    std_fee = fees_desc["std"]
-    # fees.sort()
-    # pdf_fee = stats.norm.pdf(fees, mean_fee, std_fee)
-    # plt.plot(fees, pdf_fee)
-    plt.hist(fees, bins=int((fees_desc["max"] - fees_desc["min"]) / 5))
-    plt.title("Transaction fees (BTC/byte)")
+    d_sizes_series = pd.Series(dist_sizes.rvs(1000))
+    d_fees_series = pd.Series(dist_fees.rvs(1000))
+    d_time_series = pd.Series(dist_time.rvs(1000))
 
-    plt.figure(4)
-    mean_time = time_desc["mean"]
-    std_time = time_desc["std"]
-    # time.sort()
-    # pdf_time = stats.norm.pdf(time, mean_time, std_time)
-    # plt.plot(time, pdf_time)
-    plt.hist(time, bins=int((time_desc["max"] - time_desc["min"]) / 20))
-    plt.title("Time between confirmations")
+    plot(d_sizes_series, d_sizes_series.describe(), 5, "Random Transaction sizes")
+    plot(d_fees_series, d_fees_series.describe(), 6, "Random Transaction fees")
+    plot(d_time_series, d_time_series.describe(), 7, "Random time between confirmations")
 
-    print(f"Mean block length: {mean_len}")
-    print(f"Standard deviation block length: {std_len}")
-    print(f"\nMean transaction size: {mean_tx}")
-    print(f"Standard deviation transaction size: {std_tx}")
-    print(f"\nMean transaction fee (BTC/byte): {mean_fee}")
-    print(f"Standard deviation transaction fee (BTC/byte): {std_fee}")
-    print(f"\nMean time between transactions: {mean_time}")
-    print(f"Standard Deviation between transaction times: {std_time}")
-    print(f"\nTime taken: {datetime.now() - timeStart}")
+    print("\nLengths:")
+    print(lengths_desc)
+    print()
+    print("Transaction sizes:")
+    print(sizes_desc)
+    print()
+    print("Transaction fees")
+    print(fees_desc)
+    print()
+    print("Time between confirmations")
+    print(time_desc)
+    print("Random transaction sizes:")
+    print(d_sizes_series.describe())
+    print("Random transaction fees:")
+    print(d_fees_series.describe())
+    print("Random time between confirmations")
+    print(d_time_series.describe())
+    print(f"\nTime taken: {datetime.now() - timeStart}")    
     plt.show()
+
 # To make a sample with the same mean and standard deviation use
 # np.random.normal(loc=mean, scale=std)
