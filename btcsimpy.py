@@ -3,10 +3,11 @@ import numpy as np
 import random
 from transaktionsinfo.Transactions import Transactions as transStruct
 
-TIME_TO_CONFIRM = 0 # The time it will take to confirm the transaction
+TIME_TO_CONFIRM = 10 # The time it will take to confirm the transaction
 TRANSACTION_FEE = 3.0  # The transaction fee
 TRANSACTION_SIZE = 9800   # Transaction (individual) in byte
-BLOCK_SIZE = 8000000.0 # Block size in byte
+TRANSACTION_TIME = 0.1
+BLOCK_SIZE = 8000000.0 # Block size in byte 8 mb
 WEEKS = 4              # Simulation time in weeks
 SIM_TIME = WEEKS * 7 * 24 * 60 #Simulation time in minutes
 
@@ -18,11 +19,12 @@ def transaction_size():
     """Return the actual transaction size. Not done yet"""
     return TRANSACTION_SIZE
 
+def transaction_time():
+    """Return the actual transaction time to enter mempool. Not done yet"""
+    return TRANSACTION_TIME
+
 def time_to_confirm():
     """Return the actual time to confirm. Not done yet"""
-    global TIME_TO_CONFIRM
-    TIME_TO_CONFIRM += 10
-    
     return TIME_TO_CONFIRM
 
 def main():
@@ -51,6 +53,7 @@ class MemPool(object):
 
     def confirm_transaction(self):
         while True:
+            print('TIME NOW 1', self.env.now)
             yield self.env.timeout(TIME_TO_CONFIRM)
             #Send an interrupt to add_transactions to confirm the block
             self.process.interrupt()
@@ -61,6 +64,7 @@ class MemPool(object):
         while True:
         #Start adding transactions until we confirm
             confirmation_in = time_to_confirm()
+            print('TIME NOW 0', self.env.now)
             while confirmation_in:
                 try:
                     #We append transactions to our array
@@ -69,11 +73,12 @@ class MemPool(object):
                                                          transaction_size(),
                                                          self.env.now))
                     #yield store.put(self.transactions[cnt])
-                    yield self.env.timeout(0.1) # The time it takes to create a transaction
+                    yield self.env.timeout(transaction_time()) # The time it takes to create a transaction
                 except simpy.Interrupt:
                     confirmation_in = 0 # exit while loop
                 cnt += 1
             #msg = yield store.get()
+            print('array before removal %d Time now also %d' % (len(self.transactions), self.env.now))
             self.add_transactions_to_block(BLOCK_SIZE)
             print('Block number %d Length of array %s Counter %i' % (self.blocks_confirmed, len(self.transactions), cnt))
             self.blocks_confirmed += 1
@@ -81,6 +86,7 @@ class MemPool(object):
     #Here we remove transactions from the mempool as they are 'confirmed'
     #Could also add them into a block if needed?
     def add_transactions_to_block(self, block_size):
+        print('TIME NOW 2', self.env.now)
         temporary_block_size = 0
         self.transactions.sort(key=lambda x: x.fee, reverse=True) #We prioritize the fee to be first added into the block
         for x in range(len(self.transactions)):
@@ -91,6 +97,7 @@ class MemPool(object):
                 self.transactions.pop(0) #Remove the first element
             elif(temporary_block_size == block_size):
                 break
+        print('BLOCK NOW %i TIME NOW %d' % (temporary_block_size, self.env.now))
             
         
         
