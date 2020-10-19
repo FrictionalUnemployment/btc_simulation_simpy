@@ -4,7 +4,6 @@ import requests
 import json
 import matplotlib.pyplot as plt
 from datetime import datetime
-import pandas as pd
 import scipy.stats
 
 NUMBER_OF_BLOCKS = int(input("Number of blocks to check: "))
@@ -17,12 +16,11 @@ block_hash = json.loads(latest_block.text)["hash"]
 raw_block = requests.get("https://blockchain.info/rawblock/" + block_hash)
 block_info = json.loads(raw_block.text)
 
-lengths_l = []
-time_l = []
-lengths = np.array([])
-time = np.array([])
-sizes = np.array([])
-fees = np.array([])
+lengths_o = open("lengths.txt", "w")
+time_o = open("time.txt", "w")
+sizes_o = open("sizes.txt", "w")
+fees_o = open("fees.txt", "w")
+
 
 try:
     prevTime = 0
@@ -31,18 +29,12 @@ try:
         if NUMBER_OF_BLOCKS != 0 and i >= NUMBER_OF_BLOCKS:
             break
         next_block = requests.get("https://blockchain.info/rawblock/" + block_info["prev_block"])
-        lengths_l.append(len(block_info["tx"]))
-        if len(lengths_l) > 1000:
-            lenghts = np.append(lenghts, lenghts_l)
-            lenghts_l = []
+        lengths_o.write(str(len(block_info["tx"])) + '\n')
         if prevTime != 0:
-            time_l.append(prevTime - block_info["time"])
+            time_o.write(str(prevTime - block_info["time"]) + '\n')
         prevTime = block_info["time"]
-        if len(time_l) > 1000:
-            time = np.append(time, time_l)
-            time_l = []
-        sizes = np.append(sizes, [tx["size"] for tx in block_info["tx"]])
-        fees = np.append(fees, [tx["fee"] / tx["size"] for tx in block_info["tx"]])
+        sizes_o.writelines(str(tx["size"]) + '\n' for tx in block_info["tx"])
+        fees_o.writelines(str(tx["fee"] / tx["size"]) + '\n' for tx in block_info["tx"])
 
         block_info = json.loads(next_block.text)
         print(f"Blocks checked: {i + 1}", end="\r")
@@ -50,19 +42,39 @@ try:
 except KeyboardInterrupt:
     print("\nCancelling")
 finally:
-    lengths = np.append(lengths, lengths_l)
-    lengths_series = pd.Series(lengths)
-    lengths_desc = lengths_series.describe()
+    lengths_o.close()
+    time_o.close()
+    sizes_o.close()
+    fees_o.close()
 
-    time = np.append(time, time_l)
-    time_series = pd.Series(time)
-    time_desc = time_series.describe()
+    lengths_i = open("lengths.txt", "r")
+    time_i = open("time.txt", "r")
+    sizes_i = open("sizes.txt", "r")
+    fees_i = open("fees.txt", "r")
 
-    sizes_series = pd.Series(sizes)
-    sizes_desc = sizes_series.describe()
+    def describe(ar):
+        desc = {}
+        desc["count"] = ar.size
+        desc["min"] = ar.min()
+        desc["max"] = ar.max()
+        desc["std"] = ar.std()
+        desc["mean"] = ar.mean()
+        desc["25%"] = np.percentile(ar, 25)
+        desc["50%"] = np.percentile(ar, 50)
+        desc["75%"] = np.percentile(ar, 75)
+        return desc
 
-    fees_series = pd.Series(fees)
-    fees_desc = fees_series.describe()
+    lengths = np.array(lengths_i.readlines(), np.int32)
+    lengths_desc = describe(lengths)
+
+    time = np.array(time_i.readlines(), np.int32)
+    time_desc = describe(time)
+
+    sizes = np.array(sizes_i.readlines(), np.int32)
+    sizes_desc = describe(sizes)
+
+    fees = np.array(fees_i.readlines(), np.float)
+    fees_desc = describe(fees)
 
     def freedman_diaconis(data):
         h = (2 * (data["75%"] - data["25%"])) / math.pow(data["count"], (1/3))
@@ -104,33 +116,43 @@ finally:
     dist_fees = my_distribution(fees_desc)
     dist_time = my_distribution(time_desc)
 
-    d_sizes_series = pd.Series(dist_sizes.rvs(1000))
-    d_fees_series = pd.Series(dist_fees.rvs(1000))
-    d_time_series = pd.Series(dist_time.rvs(1000))
+    d_sizes_ar = np.array(dist_sizes.rvs(500), np.int32)
+    d_fees_ar = np.array(dist_fees.rvs(500), np.float)
+    d_time_ar = np.array(dist_time.rvs(500), np.int32)
 
-    plot(d_sizes_series, d_sizes_series.describe(), 5, "Random Transaction sizes")
-    plot(d_fees_series, d_fees_series.describe(), 6, "Random Transaction fees")
-    plot(d_time_series, d_time_series.describe(), 7, "Random time between confirmations")
+    try:
+        plot(d_sizes_ar, describe(d_sizes_ar), 5, "Random Transaction sizes")
+    except (ValueError, OverflowError):
+        print("Unable to graph random transaction sizes. Maybe most values are in the same bin")
+    try:
+        plot(d_fees_ar, describe(d_fees_ar), 6, "Random Transaction fees")
+    except (ValueError, OverflowError):
+        print("Unable to graph random transaction fees")
+    try:
+        plot(d_time_ar, describe(d_time_ar), 7, "Random time between confirmations")
+    except (ValueError, OverflowError):
+        print("Unable to graph random time between confirmations")
 
     print("\nLengths:")
     print(lengths_desc)
-    print()
-    print("Transaction sizes:")
+
+    print("\nTransaction sizes:")
     print(sizes_desc)
-    print()
-    print("Transaction fees")
+
+    print("\nRandom transaction sizes:")
+    print(describe(d_sizes_ar))
+
+    print("\nTransaction fees")
     print(fees_desc)
-    print()
-    print("Time between confirmations")
+
+    print("\nRandom transaction fees:")
+    print(describe(d_fees_ar))
+
+    print("\nTime between confirmations")
     print(time_desc)
-    print("Random transaction sizes:")
-    print(d_sizes_series.describe())
-    print("Random transaction fees:")
-    print(d_fees_series.describe())
-    print("Random time between confirmations")
-    print(d_time_series.describe())
+
+    print("\nRandom time between confirmations")
+    print(describe(d_time_ar))
+
     print(f"\nTime taken: {datetime.now() - timeStart}")    
     plt.show()
-
-# To make a sample with the same mean and standard deviation use
-# np.random.normal(loc=mean, scale=std)
