@@ -4,11 +4,7 @@ import random
 from transaktionsinfo.Transactions import Transactions as transStruct
 import scipy.stats
 
-TIME_TO_CONFIRM = 10 # The time it will take to confirm the transaction
-TRANSACTION_FEE = 3.0  # The transaction fee
-TRANSACTION_SIZE = 9800   # Transaction (individual) in byte
-TRANSACTION_TIME = 0.1
-BLOCK_SIZE = 8000000.0 # Block size in byte 8 mb
+BLOCK_SIZE = 1000000.0 # Block size in byte 8 mb
 WEEKS = 4              # Simulation time in weeks
 SIM_TIME = WEEKS * 7 * 24 * 60 #Simulation time in minutes
 
@@ -101,7 +97,7 @@ class MemPool(object):
     def confirm_transaction(self):
         while True:
             print('TIME NOW 1', self.env.now)
-            yield self.env.timeout(TIME_TO_CONFIRM)
+            yield self.env.timeout(time_to_confirm())
             #Send an interrupt to add_transactions to confirm the block
             self.process.interrupt()
             
