@@ -3,6 +3,7 @@ import numpy as np
 import random
 from transaktionsinfo.Transactions import Transactions as transStruct
 import scipy.stats
+import matplotlib.pyplot as plt
 
 BLOCK_SIZE = 1000000.0 # Block size in byte 8 mb
 WEEKS = 1              # Simulation time in weeks
@@ -78,6 +79,7 @@ def main():
     #env.process(confirm_transaction(env, pipe))
     #env.process(create_transactions(env, pipe))
     env.run(until=SIM_TIME) #Run the program until SIM_TIME
+    pool.plot_mempool()
 
 class MemPool(object):
     """
@@ -90,6 +92,7 @@ class MemPool(object):
         self.capacity = capacity
         self.transactions = [] #Transactions in the "mempool"
         self.blocks = [] #Store transactions in each block
+        self.unconfirmed = [] #We want to store number of unconfirmed transactions here.
         self.confirmations_made = 0
         self.blocks_confirmed = 0
         self.process = env.process(self.put_transactions())
@@ -140,6 +143,19 @@ class MemPool(object):
                 break
             
         self.blocks.append(temp_arr) #Append all transactions into a block
+        #plt.figure(figsize=(9, 3))
+        self.unconfirmed.append(len(self.transactions)) # Append the amount of transactions that didnt get into the block
+
+    def plot_mempool(self):
+        width = 0.35
+        X = np.arange(len(self.blocks))
+        y_confirmed = [len(x) for x in self.blocks]
+        plt.bar(X, y_confirmed, width, label='Confirmed transaction')
+        plt.bar(X + width, self.unconfirmed, width, label='Unconfirmed transactions')
+        plt.ylabel('Amount of transactions')
+        plt.title('Transactions confirmed compared to transactions unconfirmed in the mempool')
+        plt.legend(loc='best')
+        plt.show()
         
 if __name__ == '__main__':
     main()
