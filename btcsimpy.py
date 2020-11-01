@@ -5,9 +5,9 @@ from transaktionsinfo.Transactions import Transactions as transStruct
 import scipy.stats
 import matplotlib.pyplot as plt
 
-BLOCK_SIZE = 1000000.0 # Block size in byte 8 mb
+BLOCK_SIZE = 1000000.0 # Block size in byte 1 mb
 WEEKS = 1              # Simulation time in weeks
-SIM_TIME = WEEKS * 7 * 24 * 60 #Simulation time in minutes
+SIM_TIME = WEEKS * 7 * 24 * 60 * 60 #Simulation time in minutes
 
 # Funciton taken from jdehesa on stackoverflow (https://stackoverflow.com/a/50629604) with slight changes
 def my_distribution(desc):
@@ -46,7 +46,7 @@ def transaction_size():
         "max" : 224490,
         "std" : 3057.464928392748,
         "mean" : 567.9297258267701
-    }
+    } #Only change max and std should be lowered mean
     size_distribution = my_distribution(size_stats)
     return size_distribution.rvs(1)
 
@@ -56,7 +56,7 @@ def transaction_time():
         "max" : 3.6399197578430176,
         "std" : 0.5587378196011653,
         "mean" : 0.38716406497793115
-    }
+    } # std o mean mer mean än std
     time_distribution = my_distribution(time_stats)
     return time_distribution.rvs(1)
 
