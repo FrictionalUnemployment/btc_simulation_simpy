@@ -5,7 +5,7 @@ from transaktionsinfo.Transactions import Transactions as transStruct
 import scipy.stats
 
 BLOCK_SIZE = 1000000.0 # Block size in byte 8 mb
-WEEKS = 4              # Simulation time in weeks
+WEEKS = 1              # Simulation time in weeks
 SIM_TIME = WEEKS * 7 * 24 * 60 #Simulation time in minutes
 
 # Funciton taken from jdehesa on stackoverflow (https://stackoverflow.com/a/50629604) with slight changes
@@ -74,7 +74,7 @@ def main():
     #Create an environment and start the setup process
     env = simpy.Environment() #simpy.realtimeEnvironment for real time sync
     #pipe = simpy.Store(env)
-    bc_pipe = MemPool(env)
+    pool = MemPool(env)
     #env.process(confirm_transaction(env, pipe))
     #env.process(create_transactions(env, pipe))
     env.run(until=SIM_TIME) #Run the program until SIM_TIME
@@ -88,7 +88,8 @@ class MemPool(object):
     def __init__(self, env, capacity=simpy.core.Infinity):
         self.env = env
         self.capacity = capacity
-        self.transactions = []
+        self.transactions = [] #Transactions in the "mempool"
+        self.blocks = [] #Store transactions in each block
         self.confirmations_made = 0
         self.blocks_confirmed = 0
         self.process = env.process(self.put_transactions())
@@ -96,18 +97,16 @@ class MemPool(object):
 
     def confirm_transaction(self):
         while True:
-            print('TIME NOW 1', self.env.now)
             yield self.env.timeout(time_to_confirm())
             #Send an interrupt to add_transactions to confirm the block
             self.process.interrupt()
             
     def put_transactions(self):
-        store = simpy.Store(self.env, capacity=self.capacity)
+        #store = simpy.Store(self.env, capacity=self.capacity)
         cnt = 0
         while True:
         #Start adding transactions until we confirm
             confirmation_in = time_to_confirm()
-            print('TIME NOW 0', self.env.now)
             while confirmation_in:
                 try:
                     #We append transactions to our array
@@ -115,12 +114,10 @@ class MemPool(object):
                                                          transaction_fee(),
                                                          transaction_size(),
                                                          self.env.now))
-                    #yield store.put(self.transactions[cnt])
                     yield self.env.timeout(transaction_time()) # The time it takes to create a transaction
                 except simpy.Interrupt:
                     confirmation_in = 0 # exit while loop
                 cnt += 1
-            #msg = yield store.get()
             print('array before removal %d Time now also %d' % (len(self.transactions), self.env.now))
             self.add_transactions_to_block(BLOCK_SIZE)
             print('Block number %d Length of array %s Counter %i' % (self.blocks_confirmed, len(self.transactions), cnt))
@@ -129,20 +126,20 @@ class MemPool(object):
     #Here we remove transactions from the mempool as they are 'confirmed'
     #Could also add them into a block if needed?
     def add_transactions_to_block(self, block_size):
-        print('TIME NOW 2', self.env.now)
         temporary_block_size = 0
+        temp_arr = []
         self.transactions.sort(key=lambda x: x.fee, reverse=True) #We prioritize the fee to be first added into the block
         for x in range(len(self.transactions)):
             if(temporary_block_size < block_size):
                 temporary_block_size += self.transactions[0].size # We add the size of the transaction
                                                                   # To our temporary block size first
                                                                   # Because afterwards we remove the element
+                temp_arr.append(self.transactions[0]) # Add transactions to our temporary array to later be added into the confirmed block
                 self.transactions.pop(0) #Remove the first element
             elif(temporary_block_size == block_size):
                 break
-        print('BLOCK NOW %i TIME NOW %d' % (temporary_block_size, self.env.now))
             
-        
+        self.blocks.append(temp_arr) #Append all transactions into a block
         
 if __name__ == '__main__':
     main()

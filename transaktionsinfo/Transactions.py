@@ -1,7 +1,5 @@
 #Class for creating transaction struct
 
-from datetime import datetime
-
 class Transactions:
     
     def __init__(self, tid, tfee, tsize, stamp):
